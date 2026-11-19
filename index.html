@@ -17,9 +17,7 @@
       --primary-hover: #059669;
       --danger-bg: #fee2e2;
       --danger-border: #ef4444;
-      --grammar-bg: #fef3c7;
       --grammar-border: #f59e0b;
-      --style-bg: #e0e7ff;
       --style-border: #6366f1;
     }
 
@@ -62,7 +60,7 @@
 
     .workspace {
       display: grid;
-      grid-template-columns: 1fr 380px;
+      grid-template-columns: 1fr 390px;
       gap: 20px;
       padding: 20px 24px;
       flex: 1;
@@ -138,14 +136,34 @@
     }
 
     .panel-header {
-      padding: 14px 16px;
+      padding: 12px 16px;
       border-bottom: 1px solid var(--border);
       font-weight: 600;
       font-size: 0.92rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
     }
+
+    .panel-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-accept-all {
+      background: var(--primary);
+      color: #ffffff;
+      border: none;
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 6px;
+      display: none;
+    }
+
+    .btn-accept-all:hover { background: var(--primary-hover); }
 
     .cards-container {
       padding: 16px;
@@ -245,7 +263,7 @@
       <span>✍️ Barreeffama / ጽሑፍ Editor</span>
       <span class="badge">Afaan Oromo & Amharic</span>
     </div>
-    <button id="acceptAllBtn" style="display:none; font-weight:600;">Accept All Fixes</button>
+    <span id="speedStat" style="font-size: 0.78rem; color: var(--muted);"></span>
   </header>
 
   <div class="workspace">
@@ -283,8 +301,11 @@
     <!-- Right Suggestions Panel -->
     <aside class="side-panel">
       <div class="panel-header">
-        <span>Suggestions</span>
-        <span id="issueCount" class="badge">0 issues</span>
+        <div class="panel-title-group">
+          <span>Suggestions</span>
+          <span id="issueCount" class="badge">0 issues</span>
+        </div>
+        <button id="acceptAllBtn" class="btn-accept-all">✓ Accept All</button>
       </div>
       <div class="cards-container" id="cardsContainer">
         <div class="empty-state">
@@ -296,7 +317,7 @@
 
   <script>
     // REPLACE THIS WITH YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxz4oj-rlyHzS2LF5uNS8jvQqRqJqnlJKu2F6a-YDjd72DZdLamKsZOfPLJogE8qrK6Dw/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwiGelFwnLpZ0CSMmBYdt-OJfCvT6tBlySdvXmo18YQ29ChV2wJWa0ZeGkQFpnse4nA/exec";
 
     const editor = document.getElementById("editor");
     const checkBtn = document.getElementById("checkBtn");
@@ -305,14 +326,16 @@
     const wordCount = document.getElementById("wordCount");
     const acceptAllBtn = document.getElementById("acceptAllBtn");
     const copyBtn = document.getElementById("copyBtn");
+    const speedStat = document.getElementById("speedStat");
 
     let currentCorrections = [];
-    let latestFullImprovedText = "";
 
-    editor.addEventListener("input", () => {
+    function updateWordCount() {
       const words = editor.value.trim().split(/\s+/).filter(Boolean);
       wordCount.textContent = `${words.length} ${words.length === 1 ? "word" : "words"}`;
-    });
+    }
+
+    editor.addEventListener("input", updateWordCount);
 
     copyBtn.addEventListener("click", () => {
       navigator.clipboard.writeText(editor.value);
@@ -321,23 +344,29 @@
     });
 
     acceptAllBtn.addEventListener("click", () => {
-      if (latestFullImprovedText) {
-        editor.value = latestFullImprovedText;
-        currentCorrections = [];
-        renderCards();
-      }
+      let updatedText = editor.value;
+      currentCorrections.forEach((item) => {
+        if (item.original && item.suggestion !== undefined) {
+          updatedText = updatedText.replace(item.original, item.suggestion);
+        }
+      });
+      editor.value = updatedText;
+      updateWordCount();
+      currentCorrections = [];
+      renderCards();
     });
 
     checkBtn.addEventListener("click", async () => {
       const text = editor.value;
       if (!text.trim()) return;
 
+      const startTime = performance.now();
       checkBtn.disabled = true;
       checkBtn.textContent = "Checking...";
+      acceptAllBtn.style.display = "none";
       cardsContainer.innerHTML = `<div class="empty-state">Analyzing grammar and spelling...</div>`;
 
       try {
-        // Using text/plain prevents browser CORS preflight issues with Google Apps Script
         const response = await fetch(APPS_SCRIPT_URL, {
           method: "POST",
           redirect: "follow",
@@ -351,14 +380,15 @@
         });
 
         const data = await response.json();
+        const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
 
         if (data.error) {
-          cardsContainer.innerHTML = `<div class="empty-state" style="color:#dc2626;">Error: ${data.error}</div>`;
+          cardsContainer.innerHTML = `<div class="empty-state" style="color:#dc2626;">Error: ${escapeHtml(data.error)}</div>`;
           return;
         }
 
+        speedStat.textContent = `Checked in ${elapsed}s`;
         currentCorrections = data.corrections || [];
-        latestFullImprovedText = data.improved_text || text;
         renderCards();
 
       } catch (err) {
@@ -370,10 +400,17 @@
     });
 
     function renderCards() {
-      issueCount.textContent = `${currentCorrections.length} ${currentCorrections.length === 1 ? "issue" : "issues"}`;
-      acceptAllBtn.style.display = currentCorrections.length > 0 ? "inline-block" : "none";
+      const count = currentCorrections.length;
+      issueCount.textContent = `${count} ${count === 1 ? "issue" : "issues"}`;
 
-      if (currentCorrections.length === 0) {
+      if (count > 0) {
+        acceptAllBtn.style.display = "inline-block";
+        acceptAllBtn.textContent = `✓ Accept All (${count})`;
+      } else {
+        acceptAllBtn.style.display = "none";
+      }
+
+      if (count === 0) {
         cardsContainer.innerHTML = `<div class="empty-state">✅ Looks great! No issues found.</div>`;
         return;
       }
@@ -384,7 +421,7 @@
         card.className = `card ${item.category || "Grammar"}`;
 
         card.innerHTML = `
-          <div class="card-meta">${item.category || "Suggestion"}</div>
+          <div class="card-meta">${escapeHtml(item.category || "Suggestion")}</div>
           <div class="diff">
             <span class="old-text">${escapeHtml(item.original)}</span>
             <span>→</span>
@@ -392,13 +429,14 @@
           </div>
           <div class="explanation">${escapeHtml(item.explanation)}</div>
           <div class="card-actions">
-            <button class="btn-accept" data-idx="${index}">Accept</button>
-            <button class="btn-dismiss" data-idx="${index}">Dismiss</button>
+            <button class="btn-accept">Accept</button>
+            <button class="btn-dismiss">Dismiss</button>
           </div>
         `;
 
         card.querySelector(".btn-accept").addEventListener("click", () => {
           editor.value = editor.value.replace(item.original, item.suggestion);
+          updateWordCount();
           currentCorrections.splice(index, 1);
           renderCards();
         });
