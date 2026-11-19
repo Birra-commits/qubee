@@ -1,1 +1,461 @@
-<!--fresh -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Qubee & Fidel AI Writing Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Ethiopic:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #10b981;
+      --primary-hover: #059669;
+      --danger-bg: #fee2e2;
+      --danger-border: #ef4444;
+      --grammar-border: #f59e0b;
+      --style-border: #6366f1;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', 'Noto Sans Ethiopic', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      font-weight: 700;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge {
+      font-size: 0.72rem;
+      background: #ecfdf5;
+      color: #047857;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid #a7f3d0;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 1fr 390px;
+      gap: 20px;
+      padding: 20px 24px;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    @media (max-width: 900px) {
+      .workspace { grid-template-columns: 1fr; overflow-y: auto; }
+    }
+
+    .editor-pane, .side-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+
+    .toolbar {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      background: #fcfcfd;
+    }
+
+    select, button {
+      font-family: inherit;
+      font-size: 0.875rem;
+      border-radius: 8px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    button.primary {
+      background: var(--primary);
+      color: white;
+      border: none;
+      font-weight: 600;
+      margin-left: auto;
+      transition: background 0.15s;
+    }
+
+    button.primary:hover { background: var(--primary-hover); }
+    button.primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    textarea {
+      flex: 1;
+      border: none;
+      resize: none;
+      padding: 20px;
+      font-family: 'Inter', 'Noto Sans Ethiopic', sans-serif;
+      font-size: 1.05rem;
+      line-height: 1.7;
+      outline: none;
+    }
+
+    .editor-footer {
+      padding: 10px 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .panel-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 0.92rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-accept-all {
+      background: var(--primary);
+      color: #ffffff;
+      border: none;
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 6px;
+      display: none;
+    }
+
+    .btn-accept-all:hover { background: var(--primary-hover); }
+
+    .cards-container {
+      padding: 16px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-left-width: 4px;
+      border-radius: 8px;
+      padding: 12px 14px;
+      background: #ffffff;
+    }
+
+    .card.Spelling { border-left-color: var(--danger-border); }
+    .card.Grammar { border-left-color: var(--grammar-border); }
+    .card.Punctuation, .card.Style { border-left-color: var(--style-border); }
+
+    .card-meta {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .diff {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 0.95rem;
+    }
+
+    .old-text {
+      text-decoration: line-through;
+      background: var(--danger-bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #991b1b;
+    }
+
+    .new-text {
+      background: #dcfce7;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #166534;
+      font-weight: 600;
+    }
+
+    .explanation {
+      font-size: 0.83rem;
+      color: var(--muted);
+      line-height: 1.45;
+      margin-bottom: 10px;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-accept {
+      background: var(--text);
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    .btn-dismiss {
+      background: transparent;
+      color: var(--muted);
+      padding: 5px 10px;
+      font-size: 0.8rem;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin-top: 40px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <span>✍️ Barreeffama / ጽሑፍ Editor</span>
+      <span class="badge">Afaan Oromo & Amharic</span>
+    </div>
+    <span id="speedStat" style="font-size: 0.78rem; color: var(--muted);"></span>
+  </header>
+
+  <div class="workspace">
+    <!-- Left Editor -->
+    <section class="editor-pane">
+      <div class="toolbar">
+        <select id="languageSelect" title="Document Language">
+          <option value="Afaan Oromo">Language: Afaan Oromo</option>
+          <option value="Amharic">Language: Amharic (አማርኛ)</option>
+        </select>
+
+        <select id="toneSelect" title="Writing Tone">
+          <option value="Standard / Clear">Tone: Standard / Clear</option>
+          <option value="Formal / Academic">Tone: Formal / Academic</option>
+          <option value="Friendly / Conversational">Tone: Conversational</option>
+        </select>
+
+        <select id="explainLangSelect" title="Explanation Language">
+          <option value="English">Explanations: English</option>
+          <option value="Afaan Oromo">Explanations: Afaan Oromo</option>
+          <option value="Amharic">Explanations: Amharic (አማርኛ)</option>
+        </select>
+
+        <button class="primary" id="checkBtn">Check Writing</button>
+      </div>
+
+      <textarea id="editor" placeholder="Barreeffama keessan asitti barreessaa ykn maxxansaa... / ጽሑፍዎን እዚህ ይጻፉ ወይም ይለጥፉ..."></textarea>
+
+      <div class="editor-footer">
+        <span id="wordCount">0 words</span>
+        <button id="copyBtn" style="padding: 4px 10px; font-size: 0.78rem;">Copy Text</button>
+      </div>
+    </section>
+
+    <!-- Right Suggestions Panel -->
+    <aside class="side-panel">
+      <div class="panel-header">
+        <div class="panel-title-group">
+          <span>Suggestions</span>
+          <span id="issueCount" class="badge">0 issues</span>
+        </div>
+        <button id="acceptAllBtn" class="btn-accept-all">✓ Accept All</button>
+      </div>
+      <div class="cards-container" id="cardsContainer">
+        <div class="empty-state">
+          Select your language and click <strong>Check Writing</strong> to analyze spelling, grammar, and clarity.
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    // REPLACE THIS WITH YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL
+    const APPS_SCRIPT_URL = "/api/check";
+
+    const editor = document.getElementById("editor");
+    const checkBtn = document.getElementById("checkBtn");
+    const cardsContainer = document.getElementById("cardsContainer");
+    const issueCount = document.getElementById("issueCount");
+    const wordCount = document.getElementById("wordCount");
+    const acceptAllBtn = document.getElementById("acceptAllBtn");
+    const copyBtn = document.getElementById("copyBtn");
+    const speedStat = document.getElementById("speedStat");
+
+    let currentCorrections = [];
+
+    function updateWordCount() {
+      const words = editor.value.trim().split(/\s+/).filter(Boolean);
+      wordCount.textContent = `${words.length} ${words.length === 1 ? "word" : "words"}`;
+    }
+
+    editor.addEventListener("input", updateWordCount);
+
+    copyBtn.addEventListener("click", () => {
+      navigator.clipboard.writeText(editor.value);
+      copyBtn.textContent = "Copied!";
+      setTimeout(() => (copyBtn.textContent = "Copy Text"), 1500);
+    });
+
+    acceptAllBtn.addEventListener("click", () => {
+      let updatedText = editor.value;
+      currentCorrections.forEach((item) => {
+        if (item.original && item.suggestion !== undefined) {
+          updatedText = updatedText.replace(item.original, item.suggestion);
+        }
+      });
+      editor.value = updatedText;
+      updateWordCount();
+      currentCorrections = [];
+      renderCards();
+    });
+
+    checkBtn.addEventListener("click", async () => {
+      const text = editor.value;
+      if (!text.trim()) return;
+
+      const startTime = performance.now();
+      checkBtn.disabled = true;
+      checkBtn.textContent = "Checking...";
+      acceptAllBtn.style.display = "none";
+      cardsContainer.innerHTML = `<div class="empty-state">Analyzing grammar and spelling...</div>`;
+
+      try {
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: "POST",
+          redirect: "follow",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            text: text,
+            language: document.getElementById("languageSelect").value,
+            tone: document.getElementById("toneSelect").value,
+            explainLang: document.getElementById("explainLangSelect").value
+          })
+        });
+
+        const data = await response.json();
+        const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+
+        if (data.error) {
+          cardsContainer.innerHTML = `<div class="empty-state" style="color:#dc2626;">Error: ${escapeHtml(data.error)}</div>`;
+          return;
+        }
+
+        speedStat.textContent = `Checked in ${elapsed}s`;
+        currentCorrections = data.corrections || [];
+        renderCards();
+
+      } catch (err) {
+        cardsContainer.innerHTML = `<div class="empty-state" style="color:#dc2626;">Connection failed. Check your Apps Script deployment URL.</div>`;
+      } finally {
+        checkBtn.disabled = false;
+        checkBtn.textContent = "Check Writing";
+      }
+    });
+
+    function renderCards() {
+      const count = currentCorrections.length;
+      issueCount.textContent = `${count} ${count === 1 ? "issue" : "issues"}`;
+
+      if (count > 0) {
+        acceptAllBtn.style.display = "inline-block";
+        acceptAllBtn.textContent = `✓ Accept All (${count})`;
+      } else {
+        acceptAllBtn.style.display = "none";
+      }
+
+      if (count === 0) {
+        cardsContainer.innerHTML = `<div class="empty-state">✅ Looks great! No issues found.</div>`;
+        return;
+      }
+
+      cardsContainer.innerHTML = "";
+      currentCorrections.forEach((item, index) => {
+        const card = document.createElement("div");
+        card.className = `card ${item.category || "Grammar"}`;
+
+        card.innerHTML = `
+          <div class="card-meta">${escapeHtml(item.category || "Suggestion")}</div>
+          <div class="diff">
+            <span class="old-text">${escapeHtml(item.original)}</span>
+            <span>→</span>
+            <span class="new-text">${escapeHtml(item.suggestion)}</span>
+          </div>
+          <div class="explanation">${escapeHtml(item.explanation)}</div>
+          <div class="card-actions">
+            <button class="btn-accept">Accept</button>
+            <button class="btn-dismiss">Dismiss</button>
+          </div>
+        `;
+
+        card.querySelector(".btn-accept").addEventListener("click", () => {
+          editor.value = editor.value.replace(item.original, item.suggestion);
+          updateWordCount();
+          currentCorrections.splice(index, 1);
+          renderCards();
+        });
+
+        card.querySelector(".btn-dismiss").addEventListener("click", () => {
+          currentCorrections.splice(index, 1);
+          renderCards();
+        });
+
+        cardsContainer.appendChild(card);
+      });
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return str.replace(/[&<>"']/g, (m) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[m]));
+    }
+  </script>
+</body>
+</html>
