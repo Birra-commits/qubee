@@ -4,7 +4,8 @@ export default {
 
     if (url.pathname === "/api/check" && request.method === "POST") {
       try {
-        if (!env.GEMINI_API_KEY) {
+        const apiKey = env.GEMINI_API_KEY ? env.GEMINI_API_KEY.trim() : "";
+        if (!apiKey) {
           return Response.json(
             { error: "GEMINI_API_KEY secret is not set in Cloudflare." },
             { status: 500 }
