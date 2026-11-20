@@ -606,32 +606,53 @@
       }
     }
   })();
-</script>
-<div id="phonetic-bar" style="display: none; margin: 6px 0;">
-  <button
-    type="button"
-    id="phonetic-toggle-btn"
-    style="padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid #ff6600; background: #fff7ed; color: #c2410c; font-weight: 600; cursor: pointer;"
-  >
-    ⌨️ Phonetic Fidel: ON (click for Native)
-  </button>
+<div id="phonetic-workspace" style="display: none; margin-top: 8px;">
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
+    <span style="font-size: 12px; font-weight: 600; color: #374151;">
+      Top box = Amharic Fidel output (`#editor`) · Bottom box = Latin phonetic / Gen Z input
+    </span>
+    <button
+      type="button"
+      id="phonetic-toggle-btn"
+      style="padding: 5px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #ff6600; background: #fff7ed; color: #c2410c; font-weight: 600; cursor: pointer;"
+    >
+      ⌨️ Phonetic Fidel: ON (click for Native)
+    </button>
+  </div>
+
+  <div id="phonetic-latin-box" style="margin-top: 6px;">
+    <label
+      for="phonetic-latin-input"
+      style="display: block; font-size: 12px; font-weight: 600; color: #c2410c; margin-bottom: 4px;"
+    >
+      Latin Phonetic Input (type e.g. <code>Lemen</code>, <code>selam</code>, <code>min ale</code>)
+    </label>
+    <textarea
+      id="phonetic-latin-input"
+      rows="2"
+      placeholder="Type Amharic in Latin letters here (e.g. Lemen -> ልምን)..."
+      style="width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 8px; border: 1.5px solid #ff6600; background: #fffaf5; color: #111827; font-size: 14px; resize: vertical;"
+    ></textarea>
+  </div>
 </div>
 
 <script>
   (function () {
-    const textInput = document.getElementById("editor");
-    const bar = document.getElementById("phonetic-bar");
+    const editor = document.getElementById("editor");
+    const workspace = document.getElementById("phonetic-workspace");
+    const latinBox = document.getElementById("phonetic-latin-box");
+    const latinInput = document.getElementById("phonetic-latin-input");
     const toggleBtn = document.getElementById("phonetic-toggle-btn");
 
-    if (!textInput) return;
+    if (!editor || !workspace || !latinInput) return;
 
-    // Move toggle bar directly above <textarea id="editor">
-    if (bar && textInput.parentNode) {
-      textInput.parentNode.insertBefore(bar, textInput);
+    // Place workspace right after #editor so #editor stays on top and Latin input sits below
+    if (editor.parentNode) {
+      editor.parentNode.insertBefore(workspace, editor.nextSibling);
     }
 
-    const DEFAULT_PLACEHOLDER = textInput.getAttribute("placeholder") || "";
-    const AMHARIC_PLACEHOLDER = "የአማርኛ ጽሑፍዎን እዚህ ይጻፉ (ምሳሌ: selam -> ሰላም)...";
+    const DEFAULT_PLACEHOLDER = editor.getAttribute("placeholder") || "";
+    const AMHARIC_PLACEHOLDER = "የአማርኛ ጽሑፍ እዚህ ይታያል (ለምሳሌ: Lemen -> ልምን)...";
 
     let phoneticEnabled = true;
     let activeLangHint = "";
@@ -652,54 +673,219 @@
 
     const langSelect = findLanguageSelect();
 
+    // [1st ä, 2nd u, 3rd i, 4th a, 5th ie/ee, 6th ə/sadis, 7th o]
     const FIDEL = {
-      h:  ["ሀ", "ሁ", "ሂ", "ሃ", "ሄ", "ህ", "ሆ"],
-      l:  ["ለ", "ሉ", "ሊ", "ላ", "ሌ", "ል", "ሎ"],
-      hh: ["ሐ", "ሑ", "ሒ", "ሓ", "ሔ", "ሕ", "ሐོ"],
-      m:  ["መ", "ሙ", "ሚ", "ማ", "ሜ", "ም", "ሞ"],
-      s:  ["ሰ", "ሱ", "ሲ", "ሳ", "ሴ", "ስ", "ሶ"],
-      r:  ["ረ", "ሩ", "ሪ", "ራ", "ሬ", "ር", "ሮ"],
-      sh: ["ሸ", "ሹ", "ሺ", "ሻ", "ሤ", "ሽ", "ሾ"],
-      q:  ["ቀ", "ቁ", "ቂ", "ቃ", "ቄ", "ቅ", "ቆ"],
-      b:  ["በ", "ቡ", "ቢ", "ባ", "ቤ", "ብ", "ቦ"],
-      v:  ["ቨ", "ቩ", "ቪ", "ቫ", "ቬ", "ቭ", "ቮ"],
-      t:  ["ተ", "ቱ", "ቲ", "ታ", "ቴ", "ት", "ቶ"],
-      ch: ["ቸ", "ቹ", "ቺ", "ቻ", "ቼ", "ች", "ቾ"],
-      n:  ["ነ", "ኑ", "ኒ", "ና", "ኔ", "ን", "ኖ"],
-      ny: ["ኘ", "ኙ", "ኚ", "ኛ", "ኜ", "ኝ", "ኞ"],
-      gn: ["ኘ", "ኙ", "ኚ", "ኛ", "ኜ", "ኝ", "ኞ"],
-      k:  ["ከ", "ኩ", "ኪ", "ካ", "ኬ", "ክ", "ኮ"],
-      w:  ["ወ", "ዉ", "ዊ", "ዋ", "ዌ", "ው", "ዎ"],
-      z:  ["ዘ", "ዙ", "ዚ", "ዛ", "ዜ", "ዝ", "ዞ"],
-      zh: ["ዠ", "ዡ", "ዢ", "ዣ", "ዤ", "ዥ", "ዦ"],
-      y:  ["የ", "ዩ", "ዪ", "ያ", "ዬ", "ይ", "ዮ"],
-      d:  ["ደ", "ዱ", "ዲ", "ዳ", "ዴ", "ድ", "ዶ"],
-      j:  ["ጀ", "ጁ", "ጂ", "ጃ", "ጄ", "ጅ", "ጆ"],
-      g:  ["ገ", "ጉ", "ጊ", "ጋ", "ගේ", "ግ", "ጎ"],
-      p:  ["ፐ", "ፑ", "ፒ", "ፓ", "ፔ", "ፕ", "ፖ"],
-      f:  ["ፈ", "ፉ", "ፊ", "ፋ", "ፌ", "ፍ", "ፎ"],
+      h:   ["ሀ", "ሁ", "ሂ", "ሃ", "ሄ", "ህ", "ሆ"],
+      l:   ["ለ", "ሉ", "ሊ", "ላ", "ሌ", "ል", "ሎ"],
+      hh:  ["ሐ", "ሑ", "ሒ", "ሓ", "ሔ", "ሕ", "ሐོ"],
+      m:   ["መ", "ሙ", "ሚ", "ማ", "ሜ", "ም", "ሞ"],
+      s:   ["ሰ", "ሱ", "ሲ", "ሳ", "ሴ", "ስ", "ሶ"],
+      r:   ["ረ", "ሩ", "ሪ", "ራ", "ሬ", "ር", "ሮ"],
+      sh:  ["ሸ", "ሹ", "ሺ", "ሻ", "ሤ", "ሽ", "ሾ"],
+      q:   ["ቀ", "ቁ", "ቂ", "ቃ", "ቄ", "ቅ", "ቆ"],
+      b:   ["በ", "ቡ", "ቢ", "ባ", "ቤ", "ብ", "ቦ"],
+      v:   ["ቨ", "ቩ", "ቪ", "ቫ", "ቬ", "ቭ", "ቮ"],
+      t:   ["ተ", "ቱ", "ቲ", "ታ", "ቴ", "ት", "ቶ"],
+      ch:  ["ቸ", "ቹ", "ቺ", "ቻ", "ቼ", "ች", "ቾ"],
+      n:   ["ነ", "ኑ", "ኒ", "ና", "ኔ", "ን", "ኖ"],
+      ny:  ["ኘ", "ኙ", "ኚ", "ኛ", "ኜ", "ኝ", "ኞ"],
+      gn:  ["ኘ", "ኙ", "ኚ", "ኛ", "ኜ", "ኝ", "ኞ"],
+      k:   ["ከ", "ኩ", "ኪ", "ካ", "ኬ", "ክ", "ኮ"],
+      w:   ["ወ", "ዉ", "ዊ", "ዋ", "ዌ", "ው", "ዎ"],
+      z:   ["ዘ", "ዙ", "ዚ", "ዛ", "ዜ", "ዝ", "ዞ"],
+      zh:  ["ዠ", "ዡ", "ዢ", "ዣ", "ዤ", "ዥ", "ዦ"],
+      y:   ["የ", "ዩ", "ዪ", "ያ", "ዬ", "ይ", "ዮ"],
+      d:   ["ደ", "ዱ", "ዲ", "ዳ", "ዴ", "ድ", "ዶ"],
+      j:   ["ጀ", "ጁ", "ጂ", "ጃ", "ጄ", "ጅ", "ጆ"],
+      g:   ["ገ", "ጉ", "ጊ", "ጋ", "ගේ", "ግ", "ጎ"],
+      p:   ["ፐ", "ፑ", "ፒ", "ፓ", "ፔ", "ፕ", "ፖ"],
+      f:   ["ፈ", "ፉ", "ፊ", "ፋ", "ፌ", "ፍ", "ፎ"],
       "t'": ["ጠ", "ጡ", "ጢ", "ጣ", "ጤ", "ጥ", "ጦ"],
       "c'": ["ጨ", "ጩ", "ጪ", "ጫ", "ጬ", "ጭ", "ጮ"],
       "p'": ["ጰ", "ጱ", "ጲ", "ጳ", "ጴ", "ጵ", "ጶ"],
       "s'": ["ጸ", "ጹ", "ጺ", "ጻ", "ጼ", "ጽ", "ጾ"],
-      ts:   ["ጸ", "ጹ", "ጺ", "ጻ", "ጼ", "ጽ", "ጾ"]
+      ts:  ["ጸ", "ጹ", "ጺ", "ጻ", "ጼ", "ጽ", "ጾ"]
     };
 
-    const STANDALONE_VOWELS = { a: "አ", u: "ኡ", i: "ኢ", e: "እ", o: "ኦ" };
-    const CHAR_TO_META = new Map();
-    for (const [key, orders] of Object.entries(FIDEL)) {
-      orders.forEach((ch, idx) => {
-        if (!CHAR_TO_META.has(ch)) CHAR_TO_META.set(ch, { key, idx });
-      });
+    const STANDALONE_VOWELS = {
+      a: "አ",
+      e: "እ",
+      i: "ኢ",
+      o: "ኦ",
+      u: "ኡ"
+    };
+
+    // Common casual / Gen Z Amharic Latin spellings -> Fidel
+    const CASUAL_ALIASES = {
+      lemen: "ልምን",
+      limen: "ልምን",
+      selam: "ሰላም",
+      salam: "ሰላም",
+      min: "ምን",
+      ale: "አለ",
+      neg: "ነግ",
+      new: "ነው",
+      nachew: "ናቸው",
+      nashi: "ናሽ",
+      neh: "ነህ",
+      nesh: "ነሽ",
+      bicha: "ብቻ",
+      betam: "በጣም",
+      etem: "እትም",
+      enante: "እናንተ",
+      enesu: "እነሱ",
+      er: "ኧረ",
+      ere: "ኧረ",
+      ay: "አይ",
+      aye: "አየ",
+      wush: "ውሽ",
+      wushet: "ውሸት",
+      ende: "እንዴ",
+      endih: "እንዲህ",
+      enday: "እንዳይ",
+      kem: "ከም",
+      ke: "ከ",
+      le: "ለ",
+      be: "በ",
+      te: "ተ",
+      ye: "የ",
+      wede: "ወደ",
+      gize: "ጊዜ",
+      sera: "ስራ",
+      sira: "ስራ",
+      sew: "ሰው",
+      bet: "ቤት",
+      ketema: "ከተማ",
+      meskel: "መስቀል",
+      enat: "እናት",
+      abat: "አባት",
+      wondim: "ወንድም",
+      ehit: "እህት",
+      fikir: "ፍቅር",
+      des: "ደስ",
+      yilegnal: "ይለኛል",
+      yihonal: "ይሆናል",
+      alawqim: "አላውቅም",
+      alawkum: "አላውቅም",
+      chigr: "ችግር",
+      chigir: "ችግር"
+    };
+
+    const VOWEL_MAP = {
+      a: 3, // 4th order (ā)
+      e: 0, // 1st order (ä) — "ee" / "ie" promotes to 5th order
+      i: 2, // 3rd order (i)
+      o: 6, // 7th order (o)
+      u: 1  // 2nd order (u)
+    };
+
+    const DIGRAPHS = ["sh", "ch", "zh", "ny", "gn", "hh", "ts", "t'", "c'", "p'", "s'"];
+
+    // Transliterates a single Latin word into Fidel
+    function transliterateWord(rawWord) {
+      if (!rawWord) return "";
+      const lower = rawWord.toLowerCase();
+
+      if (CASUAL_ALIASES[lower]) {
+        return CASUAL_ALIASES[lower];
+      }
+
+      let out = "";
+      let i = 0;
+
+      while (i < lower.length) {
+        const ch = lower[i];
+
+        // Punctuation inside/at edge of token
+        if (ch === ".") {
+          if (lower[i + 1] === ".") {
+            out += "።";
+            i += 2;
+          } else {
+            out += ".";
+            i += 1;
+          }
+          continue;
+        }
+        if (ch === ",") { out += "፣"; i += 1; continue; }
+        if (ch === ";") { out += "፤"; i += 1; continue; }
+        if (ch === ":") { out += "፡"; i += 1; continue; }
+        if (ch === "?") { out += "፧"; i += 1; continue; }
+
+        if (!/[a-z']/i.test(ch)) {
+          out += ch;
+          i += 1;
+          continue;
+        }
+
+        // Check 2-char digraphs first (like "sh", "ch", "ny", "ts", "t'")
+        const two = lower.slice(i, i + 2);
+        let consKey = null;
+        let step = 1;
+
+        if (DIGRAPHS.includes(two) && FIDEL[two]) {
+          consKey = two;
+          step = 2;
+        } else if (FIDEL[ch]) {
+          consKey = ch;
+          step = 1;
+        }
+
+        if (consKey) {
+          i += step;
+          const next1 = lower[i];
+          const next2 = lower[i + 1];
+
+          // Check 5th order ("ee" or "ie")
+          if (
+            (next1 === "e" && next2 === "e") ||
+            (next1 === "i" && next2 === "e")
+          ) {
+            out += FIDEL[consKey][4];
+            i += 2;
+            continue;
+          }
+
+          // Check single vowel following consonant
+          if (next1 && Object.prototype.hasOwnProperty.call(VOWEL_MAP, next1)) {
+            out += FIDEL[consKey][VOWEL_MAP[next1]];
+            i += 1;
+            continue;
+          }
+
+          // Otherwise 6th order (sadis / base consonant)
+          out += FIDEL[consKey][5];
+          continue;
+        }
+
+        // Standalone vowels
+        if (STANDALONE_VOWELS[ch]) {
+          out += STANDALONE_VOWELS[ch];
+          i += 1;
+          continue;
+        }
+
+        out += ch;
+        i += 1;
+      }
+
+      return out;
     }
 
-    let lastConsonantKey = null;
-    let lastVowelChar = null;
+    // Converts full Latin text (preserving spaces & newlines) into Fidel
+    function transliterateText(inputText) {
+      return inputText
+        .split(/(\s+)/)
+        .map((part) => (/^\s+$/.test(part) ? part : transliterateWord(part)))
+        .join("");
+    }
 
     function isAmharicSelected() {
       if (langSelect) {
         const val = String(langSelect.value || "").toLowerCase();
-        const optText = String(langSelect.options?.[langSelect.selectedIndex]?.text || "").toLowerCase();
+        const optText = String(
+          langSelect.options?.[langSelect.selectedIndex]?.text || ""
+        ).toLowerCase();
         if (/amharic|amh|^am$|አማርኛ/.test(val) || /amharic|amh|አማርኛ/.test(optText)) {
           return true;
         }
@@ -710,126 +896,39 @@
       return activeLangHint === "amharic";
     }
 
+    function syncPhoneticOutput() {
+      if (!isAmharicSelected() || !phoneticEnabled) return;
+      editor.value = transliterateText(latinInput.value);
+      editor.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
     function syncUIState() {
-      const active = isAmharicSelected();
-      if (bar) {
-        bar.style.display = active ? "block" : "none";
-      }
+      const amharicActive = isAmharicSelected();
+      const showLatinBox = amharicActive && phoneticEnabled;
+
+      workspace.style.display = amharicActive ? "block" : "none";
+      latinBox.style.display = showLatinBox ? "block" : "none";
+
       if (toggleBtn) {
         toggleBtn.textContent = phoneticEnabled
           ? "⌨️ Phonetic Fidel: ON (click for Native)"
           : "⌨️ Phonetic Fidel: OFF (Native Keyboard)";
       }
-      if (active) {
-        textInput.setAttribute("lang", "am");
-        textInput.placeholder = AMHARIC_PLACEHOLDER;
+
+      if (amharicActive) {
+        editor.setAttribute("lang", "am");
+        editor.placeholder = AMHARIC_PLACEHOLDER;
+        if (phoneticEnabled) {
+          syncPhoneticOutput();
+          latinInput.focus();
+        }
       } else {
-        textInput.setAttribute("lang", "om");
-        textInput.placeholder = DEFAULT_PLACEHOLDER;
-        lastConsonantKey = null;
-        lastVowelChar = null;
+        editor.setAttribute("lang", "om");
+        editor.placeholder = DEFAULT_PLACEHOLDER;
       }
     }
 
-    function replaceRange(start, end, replacement) {
-      const val = textInput.value;
-      textInput.value = val.slice(0, start) + replacement + val.slice(end);
-      const newPos = start + replacement.length;
-      textInput.setSelectionRange(newPos, newPos);
-      textInput.dispatchEvent(new Event("input", { bubbles: true }));
-    }
-
-    textInput.addEventListener("keydown", function (e) {
-      if (!isAmharicSelected() || !phoneticEnabled) return;
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-
-      if (e.key === "Backspace") {
-        lastConsonantKey = null;
-        lastVowelChar = null;
-        return;
-      }
-      if (e.key.length !== 1) return;
-
-      const keyLower = e.key.toLowerCase();
-      const start = textInput.selectionStart ?? textInput.value.length;
-      const end = textInput.selectionEnd ?? start;
-      const before = textInput.value.slice(0, start);
-
-      const punctMap = { ";": "፤", ":": "፡", "?": "፧", ",": "፣" };
-      if (e.key === "." && start > 0 && textInput.value[start - 1] === ".") {
-        e.preventDefault();
-        replaceRange(start - 1, start, "።");
-        lastConsonantKey = null;
-        lastVowelChar = null;
-        return;
-      }
-      if (punctMap[e.key]) {
-        e.preventDefault();
-        replaceRange(start, end, punctMap[e.key]);
-        lastConsonantKey = null;
-        lastVowelChar = null;
-        return;
-      }
-
-      if (!/[a-z']/i.test(e.key)) {
-        lastConsonantKey = null;
-        lastVowelChar = null;
-        return;
-      }
-
-      const prevChar = before.slice(-1);
-      const prevMeta = CHAR_TO_META.get(prevChar);
-      const vowelOrderMap = { e: 0, u: 1, i: 2, a: 3, o: 6 };
-
-      if (Object.prototype.hasOwnProperty.call(vowelOrderMap, keyLower)) {
-        e.preventDefault();
-        const targetOrder = vowelOrderMap[keyLower];
-
-        if ((keyLower === "e" || keyLower === "i") && prevMeta && prevMeta.idx === 0 && (lastVowelChar === "e" || lastVowelChar === "ee")) {
-          const fifthChar = FIDEL[prevMeta.key]?.[4];
-          if (fifthChar) {
-            replaceRange(start - 1, end, fifthChar);
-            lastConsonantKey = prevMeta.key;
-            lastVowelChar = "ee";
-            return;
-          }
-        }
-
-        if (prevMeta && prevMeta.idx === 5) {
-          const nextGlyph = FIDEL[prevMeta.key]?.[targetOrder];
-          if (nextGlyph) {
-            replaceRange(start - 1, end, nextGlyph);
-            lastConsonantKey = prevMeta.key;
-            lastVowelChar = keyLower;
-            return;
-          }
-        }
-
-        const standalone = STANDALONE_VOWELS[keyLower];
-        if (standalone) {
-          replaceRange(start, end, standalone);
-          lastConsonantKey = null;
-          lastVowelChar = keyLower;
-        }
-        return;
-      }
-
-      const twoCharCombo = lastConsonantKey ? `${lastConsonantKey}${keyLower}` : null;
-      if (twoCharCombo && FIDEL[twoCharCombo] && prevMeta && prevMeta.idx === 5) {
-        e.preventDefault();
-        replaceRange(start - 1, end, FIDEL[twoCharCombo][5]);
-        lastConsonantKey = twoCharCombo;
-        lastVowelChar = null;
-        return;
-      }
-
-      if (FIDEL[keyLower]) {
-        e.preventDefault();
-        replaceRange(start, end, FIDEL[keyLower][5]);
-        lastConsonantKey = keyLower;
-        lastVowelChar = null;
-      }
-    });
+    latinInput.addEventListener("input", syncPhoneticOutput);
 
     document.addEventListener("click", (e) => {
       const target = e.target.closest("button, [role='tab'], label, a");
@@ -847,7 +946,11 @@
     toggleBtn?.addEventListener("click", () => {
       phoneticEnabled = !phoneticEnabled;
       syncUIState();
-      textInput.focus();
+      if (phoneticEnabled) {
+        latinInput.focus();
+      } else {
+        editor.focus();
+      }
     });
 
     langSelect?.addEventListener("change", syncUIState);
