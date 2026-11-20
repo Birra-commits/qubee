@@ -29,15 +29,14 @@ ${text}`;
           contents: [{ role: "user", parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.1,
-            responseMimeType: "application/json",
-            thinkingConfig: { thinkingBudget: 0 }
+            responseMimeType: "application/json"
           }
         });
 
         const MODELS = [
-          "gemini-3.5-flash-lite",
-          "gemini-3.1-flash-lite",
-          "gemini-3.6-flash"
+          "gemini-2.5-flash-lite",
+          "gemini-2.5-flash",
+          "gemini-2.0-flash"
         ];
 
         let lastError = "Model temporarily busy. Please try again.";
