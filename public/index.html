@@ -9,6 +9,9 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/odaa.png" class="site-logo" />
   <link rel="icon" type="image/png" sizes="192x192" href="/odaa.png" class="site-logo" />
   <link rel="apple-touch-icon" href="/odaa.png" class="site-logo" />
+  <button type="button" id="open-guide-btn" class="guide-btn">
+  ▶ How It Works
+  </button>
   <style>
     :root {
       --bg: #f8fafc;
@@ -267,6 +270,7 @@
       margin-top: 40px;
       line-height: 1.6;
     }
+    
   </style>
 </head>
 <body>
@@ -470,5 +474,140 @@
       }[m]));
     }
   </script>
+  <!-- First-Time Guide Popup Modal -->
+<div id="guide-modal" class="guide-backdrop" hidden>
+  <div class="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title">
+    <div class="guide-header">
+      <h3 id="guide-title">Quick Guide: How to Check Your Writing</h3>
+      <button type="button" id="close-guide-btn" class="guide-close" aria-label="Close guide">✕</button>
+    </div>
+
+    <div class="guide-body">
+      <div class="guide-video-wrap" style="aspect-ratio: 16 / 9; background: #000; border-radius: 8px; overflow: hidden;">
+        <iframe
+          id="guide-iframe"
+          src=""
+          data-src="https://www.youtube.com/watch?v=0iFeM8IX8V8"
+          title="Writing Assistant Guide"
+          style="width: 100%; height: 100%; border: 0;"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen
+        ></iframe>
+      </div>
+    </div>
+
+    <div class="guide-footer">
+      <span class="guide-hint">Shown once on your first visit</span>
+      <button type="button" id="guide-done-btn" class="guide-done-btn">Got It</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .guide-backdrop[hidden] {
+    display: none;
+  }
+  .guide-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 9999;
+  }
+  .guide-modal {
+    width: 100%;
+    max-width: 720px;
+    background: #ffffff;
+    color: #111827;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  }
+  .guide-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .guide-header h3 {
+    margin: 0;
+    font-size: 16px;
+  }
+  .guide-close {
+    background: transparent;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: #4b5563;
+  }
+  .guide-body {
+    padding: 16px 18px;
+  }
+  .guide-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+    font-size: 13px;
+    color: #4b5563;
+  }
+  .guide-done-btn,
+  .guide-btn {
+    background: #ff6600;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+</style>
+
+<script>
+  (function () {
+    const STORAGE_KEY = "qubee_seen_guide_v1";
+    const modal = document.getElementById("guide-modal");
+    const openBtn = document.getElementById("open-guide-btn");
+    const closeBtn = document.getElementById("close-guide-btn");
+    const doneBtn = document.getElementById("guide-done-btn");
+    const iframe = document.getElementById("guide-iframe");
+
+    function openGuide() {
+      if (iframe && iframe.dataset.src) {
+        iframe.src = iframe.dataset.src;
+      }
+      modal.hidden = false;
+    }
+
+    function closeGuide() {
+      modal.hidden = true;
+      if (iframe) {
+        iframe.src = "";
+      }
+      localStorage.setItem(STORAGE_KEY, "true");
+    }
+
+    openBtn?.addEventListener("click", openGuide);
+    closeBtn?.addEventListener("click", closeGuide);
+    doneBtn?.addEventListener("click", closeGuide);
+    modal?.addEventListener("click", (e) => {
+      if (e.target === modal) closeGuide();
+    });
+
+    if (!localStorage.getItem(STORAGE_KEY)) {
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", openGuide);
+      } else {
+        openGuide();
+      }
+    }
+  })();
+</script>
 </body>
 </html>
