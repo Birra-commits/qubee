@@ -607,27 +607,50 @@
     }
   })();
 </script>
-<button
-  type="button"
-  id="phonetic-toggle-btn"
-  style="display: none; margin-bottom: 6px; padding: 5px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #d1d5db; background: #fff7ed; color: #c2410c; font-weight: 600; cursor: pointer;"
->
-  ⌨️ Phonetic Fidel: ON (click for Native)
-</button>
+<div id="phonetic-bar" style="display: none; margin: 6px 0;">
+  <button
+    type="button"
+    id="phonetic-toggle-btn"
+    style="padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid #ff6600; background: #fff7ed; color: #c2410c; font-weight: 600; cursor: pointer;"
+  >
+    ⌨️ Phonetic Fidel: ON (click for Native)
+  </button>
+</div>
 
 <script>
   (function () {
-    // Update these two IDs if yours differ in public/index.html
-    const SELECT_ID = "language-select";
-    const INPUT_ID = "text-input";
-
-    const langSelect = document.getElementById(SELECT_ID);
-    const textInput = document.getElementById(INPUT_ID);
+    const textInput = document.getElementById("editor");
+    const bar = document.getElementById("phonetic-bar");
     const toggleBtn = document.getElementById("phonetic-toggle-btn");
 
     if (!textInput) return;
 
+    // Move toggle bar directly above <textarea id="editor">
+    if (bar && textInput.parentNode) {
+      textInput.parentNode.insertBefore(bar, textInput);
+    }
+
+    const DEFAULT_PLACEHOLDER = textInput.getAttribute("placeholder") || "";
+    const AMHARIC_PLACEHOLDER = "የአማርኛ ጽሑፍዎን እዚህ ይጻፉ (ምሳሌ: selam -> ሰላም)...";
+
     let phoneticEnabled = true;
+    let activeLangHint = "";
+
+    function findLanguageSelect() {
+      return (
+        document.getElementById("language-select") ||
+        document.getElementById("lang-select") ||
+        document.getElementById("language") ||
+        [...document.querySelectorAll("select")].find((sel) =>
+          [...sel.options].some((o) =>
+            /amharic|amh|አማርኛ|oromo|orm|afaan/i.test(`${o.value} ${o.text}`)
+          )
+        ) ||
+        null
+      );
+    }
+
+    const langSelect = findLanguageSelect();
 
     const FIDEL = {
       h:  ["ሀ", "ሁ", "ሂ", "ሃ", "ሄ", "ህ", "ሆ"],
@@ -662,20 +685,11 @@
       ts:   ["ጸ", "ጹ", "ጺ", "ጻ", "ጼ", "ጽ", "ጾ"]
     };
 
-    const STANDALONE_VOWELS = {
-      a: "አ",
-      u: "ኡ",
-      i: "ኢ",
-      e: "እ",
-      o: "ኦ"
-    };
-
+    const STANDALONE_VOWELS = { a: "አ", u: "ኡ", i: "ኢ", e: "እ", o: "ኦ" };
     const CHAR_TO_META = new Map();
     for (const [key, orders] of Object.entries(FIDEL)) {
       orders.forEach((ch, idx) => {
-        if (!CHAR_TO_META.has(ch)) {
-          CHAR_TO_META.set(ch, { key, idx });
-        }
+        if (!CHAR_TO_META.has(ch)) CHAR_TO_META.set(ch, { key, idx });
       });
     }
 
@@ -683,29 +697,35 @@
     let lastVowelChar = null;
 
     function isAmharicSelected() {
-      if (!langSelect) return false;
-      const val = String(langSelect.value || "").toLowerCase();
-      const optText = String(
-        langSelect.options?.[langSelect.selectedIndex]?.text || ""
-      ).toLowerCase();
-      return (
-        val.includes("amharic") ||
-        val.includes("amh") ||
-        val === "am" ||
-        optText.includes("amharic") ||
-        optText.includes("አማርኛ")
-      );
+      if (langSelect) {
+        const val = String(langSelect.value || "").toLowerCase();
+        const optText = String(langSelect.options?.[langSelect.selectedIndex]?.text || "").toLowerCase();
+        if (/amharic|amh|^am$|አማርኛ/.test(val) || /amharic|amh|አማርኛ/.test(optText)) {
+          return true;
+        }
+        if (/oromo|orm|^om$|afaan/.test(val) || /oromo|orm|afaan/.test(optText)) {
+          return false;
+        }
+      }
+      return activeLangHint === "amharic";
     }
 
     function syncUIState() {
       const active = isAmharicSelected();
+      if (bar) {
+        bar.style.display = active ? "block" : "none";
+      }
       if (toggleBtn) {
-        toggleBtn.style.display = active ? "inline-flex" : "none";
         toggleBtn.textContent = phoneticEnabled
           ? "⌨️ Phonetic Fidel: ON (click for Native)"
           : "⌨️ Phonetic Fidel: OFF (Native Keyboard)";
       }
-      if (!active) {
+      if (active) {
+        textInput.setAttribute("lang", "am");
+        textInput.placeholder = AMHARIC_PLACEHOLDER;
+      } else {
+        textInput.setAttribute("lang", "om");
+        textInput.placeholder = DEFAULT_PLACEHOLDER;
         lastConsonantKey = null;
         lastVowelChar = null;
       }
@@ -719,23 +739,6 @@
       textInput.dispatchEvent(new Event("input", { bubbles: true }));
     }
 
-    function handlePunctuation(ch, pos) {
-      const punctMap = { ";": "፤", ":": "፡", "?": "፧", ",": "፣" };
-      if (ch === "." && pos > 0 && textInput.value[pos - 1] === ".") {
-        replaceRange(pos - 1, pos, "።");
-        lastConsonantKey = null;
-        lastVowelChar = null;
-        return true;
-      }
-      if (punctMap[ch]) {
-        replaceRange(pos, pos, punctMap[ch]);
-        lastConsonantKey = null;
-        lastVowelChar = null;
-        return true;
-      }
-      return false;
-    }
-
     textInput.addEventListener("keydown", function (e) {
       if (!isAmharicSelected() || !phoneticEnabled) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -745,7 +748,6 @@
         lastVowelChar = null;
         return;
       }
-
       if (e.key.length !== 1) return;
 
       const keyLower = e.key.toLowerCase();
@@ -753,11 +755,20 @@
       const end = textInput.selectionEnd ?? start;
       const before = textInput.value.slice(0, start);
 
-      if (/[.;:?,]/.test(e.key)) {
-        if (handlePunctuation(e.key, start)) {
-          e.preventDefault();
-          return;
-        }
+      const punctMap = { ";": "፤", ":": "፡", "?": "፧", ",": "፣" };
+      if (e.key === "." && start > 0 && textInput.value[start - 1] === ".") {
+        e.preventDefault();
+        replaceRange(start - 1, start, "።");
+        lastConsonantKey = null;
+        lastVowelChar = null;
+        return;
+      }
+      if (punctMap[e.key]) {
+        e.preventDefault();
+        replaceRange(start, end, punctMap[e.key]);
+        lastConsonantKey = null;
+        lastVowelChar = null;
+        return;
       }
 
       if (!/[a-z']/i.test(e.key)) {
@@ -768,8 +779,8 @@
 
       const prevChar = before.slice(-1);
       const prevMeta = CHAR_TO_META.get(prevChar);
-
       const vowelOrderMap = { e: 0, u: 1, i: 2, a: 3, o: 6 };
+
       if (Object.prototype.hasOwnProperty.call(vowelOrderMap, keyLower)) {
         e.preventDefault();
         const targetOrder = vowelOrderMap[keyLower];
@@ -817,6 +828,19 @@
         replaceRange(start, end, FIDEL[keyLower][5]);
         lastConsonantKey = keyLower;
         lastVowelChar = null;
+      }
+    });
+
+    document.addEventListener("click", (e) => {
+      const target = e.target.closest("button, [role='tab'], label, a");
+      if (!target || target === toggleBtn) return;
+      const txt = `${target.dataset.lang || ""} ${target.value || ""} ${target.textContent || ""}`.toLowerCase();
+      if (/amharic|amh|አማርኛ/.test(txt)) {
+        activeLangHint = "amharic";
+        setTimeout(syncUIState, 0);
+      } else if (/oromo|orm|afaan/.test(txt)) {
+        activeLangHint = "oromo";
+        setTimeout(syncUIState, 0);
       }
     });
 
