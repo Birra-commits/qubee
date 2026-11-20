@@ -44,13 +44,13 @@ ${text}`;
 
         for (const model of MODELS) {
           const geminiRes = await fetch(
-            `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent?key=${apiKey}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: requestBody
-            }
-          );
+  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: requestBody
+  }
+);
 
           const data = await geminiRes.json();
 
