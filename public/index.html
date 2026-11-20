@@ -607,5 +607,251 @@
     }
   })();
 </script>
+  <!-- Optional toggle button near your Amharic input -->
+<button
+  type="button"
+  id="phonetic-toggle-btn"
+  style="display: none; margin-bottom: 6px; padding: 5px 10px; font-size: 12px; border-radius: 6px; border: 1px solid #d1d5db; background: #fff7ed; color: #c2410c; font-weight: 600; cursor: pointer;"
+>
+  ⌨️ Phonetic Fidel: ON (click for Native)
+</button>
+
+<script>
+  (function () {
+    const langSelect = document.getElementById("language-select");
+    const textInput = document.getElementById("text-input");
+    const toggleBtn = document.getElementById("phonetic-toggle-btn");
+
+    if (!textInput) return;
+
+    let phoneticEnabled = true;
+
+    // 7-order Fidel table: [1st ä, 2nd u, 3rd i, 4th a, 5th ie/ee, 6th ə/base, 7th o]
+    const FIDEL = {
+      h:  ["ሀ", "ሁ", "ሂ", "ሃ", "ሄ", "ህ", "ሆ"],
+      l:  ["ለ", "ሉ", "ሊ", "ላ", "ሌ", "ል", "ሎ"],
+      hh: ["ሐ", "ሑ", "ሒ", "ሓ", "ሔ", "ሕ", "ሐో".replace("ో", "ぉ") ? "ሐོ" : "ሐོ"],
+      m:  ["መ", "ሙ", "ሚ", "ማ", "ሜ", "ም", "ሞ"],
+      s:  ["ሰ", "ሱ", "ሲ", "ሳ", "ሴ", "ስ", "ሶ"],
+      r:  ["ረ", "ሩ", "ሪ", "ራ", "ሬ", "ር", "ሮ"],
+      sh: ["ሸ", "ሹ", "ሺ", "ሻ", "ሤ", "ሽ", "ሾ"],
+      q:  ["ቀ", "ቁ", "ቂ", "ቃ", "Accessibility" ? "ቄ" : "ቄ", "ቅ", "ቆ"],
+      b:  ["በ", "ቡ", "ቢ", "ባ", "ቤ", "ብ", "ቦ"],
+      v:  ["ቨ", "ቩ", "ቪ", "ቫ", "ቬ", "ቭ", "ቮ"],
+      t:  ["ተ", "ቱ", "ቲ", "ታ", "Template" ? "ቴ" : "ቴ", "ት", "ቶ"],
+      ch: ["ቸ", "ቹ", "ቺ", "ቻ", "ቼ", "ች", "ቾ"],
+      n:  ["ነ", "ኑ", "ኒ", "ና", "ኔ", "ን", "ኖ"],
+      ny: ["ኘ", "ኙ", "ኚ", "ኛ", "ኜ", "ኝ", "ኞ"],
+      gn: ["ኘ", "ኙ", "ኚ", "ኛ", "ኜ", "ኝ", "ኞ"],
+      k:  ["ከ", "ኩ", "ኪ", "ካ", "ኬ", "ክ", "ኮ"],
+      w:  ["ወ", "ዉ", "ዊ", "ዋ", "ዌ", "ው", "ዎ"],
+      z:  ["ዘ", "ዙ", "ዚ", "ዛ", "ゼ" ? "ዜ" : "ዜ", "ዝ", "ዞ"],
+      zh: ["ዠ", "ዡ", "ዢ", "ዣ", "ዤ", "ዥ", "ዦ"],
+      y:  ["የ", "ዩ", "ዪ", "ያ", "ዬ", "ይ", "ዮ"],
+      d:  ["ደ", "ዱ", "ዲ", "ዳ", "ዴ", "ድ", "ዶ"],
+      j:  ["ጀ", "ጁ", "ጂ", "ጃ", "ጄ", "ጅ", "ጆ"],
+      g:  ["ገ", "ጉ", "ጊ", "ጋ", "ගේ", "ግ", "ጎ"],
+      p:  ["ፐ", "ፑ", "ፒ", "ፓ", "ፔ", "ፕ", "ፖ"],
+      f:  ["ፈ", "ፉ", "ፊ", "ፋ", "ፌ", "ፍ", "Fo" ? "ፎ" : "ፎ"],
+      // Ejectives & special consonants
+      "t'": ["ጠ", "ጡ", "ጢ", "ጣ", "ጤ", "ጥ", "ጦ"],
+      "c'": ["ጨ", "ጩ", "ጪ", "ጫ", "ጬ", "ጭ", "ጮ"],
+      "p'": ["ጰ", "ጱ", "ጲ", "ጳ", "ጴ", "ጵ", "ጶ"],
+      "s'": ["ጸ", "ጹ", "ጺ", "ጻ", "ጼ", "ጽ", "ጾ"],
+      ts:   ["ጸ", "ጹ", "ጺ", "ጻ", "ጼ", "ጽ", "ጾ"]
+    };
+
+    // Standalone vowels (1st ä, 2nd u, 3rd i, 4th a, 5th ie, 6th ə, 7th o)
+    const STANDALONE_VOWELS = {
+      a: "አ",
+      u: "ኡ",
+      i: "ኢ",
+      e: "እ",
+      o: "ኦ"
+    };
+
+    // Map any Fidel character back to its [baseKey, orderIndex (0..6)]
+    const CHAR_TO_META = new Map();
+    for (const [key, orders] of Object.entries(FIDEL)) {
+      orders.forEach((ch, idx) => {
+        if (!CHAR_TO_META.has(ch)) {
+          CHAR_TO_META.set(ch, { key, idx });
+        }
+      });
+    }
+
+    // Track last keystroke so sequences like "s" -> "h" become "ሽ" or "e" -> "e" become 5th order
+    let lastConsonantKey = null;
+    let lastVowelChar = null;
+
+    function isAmharicSelected() {
+      if (!langSelect) return false;
+      const v = String(langSelect.value || "").toLowerCase();
+      return v.includes("amharic") || v === "am" || v === "amh";
+    }
+
+    function syncUIState() {
+      const active = isAmharicSelected();
+      if (toggleBtn) {
+        toggleBtn.style.display = active ? "inline-flex" : "none";
+        toggleBtn.textContent = phoneticEnabled
+          ? "⌨️ Phonetic Fidel: ON (click for Native)"
+          : "⌨️ Phonetic Fidel: OFF (Native Keyboard)";
+      }
+      if (!active) {
+        lastConsonantKey = null;
+        lastVowelChar = null;
+      }
+    }
+
+    function replaceRange(start, end, replacement) {
+      const val = textInput.value;
+      textInput.value = val.slice(0, start) + replacement + val.slice(end);
+      const newPos = start + replacement.length;
+      textInput.setSelectionRange(newPos, newPos);
+    }
+
+    function handlePunctuation(ch, pos) {
+      const punctMap = {
+        ";": "፤",
+        ":": "፡",
+        "?": "፧",
+        ",": "፣"
+      };
+      if (ch === "." && pos > 0 && textInput.value[pos - 1] === ".") {
+        replaceRange(pos - 1, pos, "።");
+        lastConsonantKey = null;
+        lastVowelChar = null;
+        return true;
+      }
+      if (punctMap[ch]) {
+        replaceRange(pos, pos, punctMap[ch]);
+        lastConsonantKey = null;
+        lastVowelChar = null;
+        return true;
+      }
+      return false;
+    }
+
+    textInput.addEventListener("keydown", function (e) {
+      if (!isAmharicSelected() || !phoneticEnabled) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      if (e.key === "Backspace") {
+        lastConsonantKey = null;
+        lastVowelChar = null;
+        return;
+      }
+
+      if (e.key.length !== 1) return;
+
+      const keyLower = e.key.toLowerCase();
+      const start = textInput.selectionStart ?? textInput.value.length;
+      const end = textInput.selectionEnd ?? start;
+      const before = textInput.value.slice(0, start);
+
+      // Punctuation helper
+      if (/[.;:?,]/.test(e.key)) {
+        if (handlePunctuation(e.key, start)) {
+          e.preventDefault();
+          return;
+        }
+      }
+
+      if (!/[a-z']/i.test(e.key)) {
+        lastConsonantKey = null;
+        lastVowelChar = null;
+        return;
+      }
+
+      const prevChar = before.slice(-1);
+      const prevMeta = CHAR_TO_META.get(prevChar);
+
+      // 1. Handle vowels when following a consonant
+      const vowelOrderMap = {
+        e: 0, // 1st order (ä)
+        u: 1, // 2nd order (u)
+        i: 2, // 3rd order (i)
+        a: 3, // 4th order (a)
+        o: 6  // 7th order (o)
+      };
+
+      if (Object.prototype.hasOwnProperty.call(vowelOrderMap, keyLower)) {
+        e.preventDefault();
+        const targetOrder = vowelOrderMap[keyLower];
+
+        // If user types "e" after a 1st-order character (e.g., "se" -> "ሰ", then "e" -> "ሴ"), promote to 5th order
+        if (keyLower === "e" && prevMeta && prevMeta.idx === 0) {
+          const fifthChar = FIDEL[prevMeta.key]?.[4];
+          if (fifthChar) {
+            replaceRange(start - 1, end, fifthChar);
+            lastConsonantKey = prevMeta.key;
+            lastVowelChar = "ee";
+            return;
+          }
+        }
+
+        // If user types "i" after a 1st-order character (e.g., "si" -> "ሲ" or "sei" -> "ሴ")
+        if (keyLower === "i" && prevMeta && prevMeta.idx === 0 && lastVowelChar === "e") {
+          const fifthChar = FIDEL[prevMeta.key]?.[4];
+          if (fifthChar) {
+            replaceRange(start - 1, end, fifthChar);
+            lastConsonantKey = prevMeta.key;
+            lastVowelChar = "ei";
+            return;
+          }
+        }
+
+        // Apply vowel to preceding 6th-order consonant (e.g., "s" [ስ] + "a" -> "ሳ")
+        if (prevMeta && prevMeta.idx === 5) {
+          const nextGlyph = FIDEL[prevMeta.key]?.[targetOrder];
+          if (nextGlyph) {
+            replaceRange(start - 1, end, nextGlyph);
+            lastConsonantKey = prevMeta.key;
+            lastVowelChar = keyLower;
+            return;
+          }
+        }
+
+        // Otherwise insert standalone vowel
+        const standalone = STANDALONE_VOWELS[keyLower];
+        if (standalone) {
+          replaceRange(start, end, standalone);
+          lastConsonantKey = null;
+          lastVowelChar = keyLower;
+        }
+        return;
+      }
+
+      // 2. Handle digraphs / ejectives like "sh", "ch", "zh", "ny", "gn", "ts", "t'", "c'", "p'", "s'"
+      const twoCharCombo = lastConsonantKey ? `${lastConsonantKey}${keyLower}` : null;
+      if (twoCharCombo && FIDEL[twoCharCombo] && prevMeta && prevMeta.idx === 5) {
+        e.preventDefault();
+        replaceRange(start - 1, end, FIDEL[twoCharCombo][5]);
+        lastConsonantKey = twoCharCombo;
+        lastVowelChar = null;
+        return;
+      }
+
+      // 3. Standard single consonant -> default to 6th order (sadis / base consonant, e.g., "s" -> "ስ")
+      if (FIDEL[keyLower]) {
+        e.preventDefault();
+        replaceRange(start, end, FIDEL[keyLower][5]);
+        lastConsonantKey = keyLower;
+        lastVowelChar = null;
+      }
+    });
+
+    toggleBtn?.addEventListener("click", () => {
+      phoneticEnabled = !phoneticEnabled;
+      syncUIState();
+      textInput.focus();
+    });
+
+    langSelect?.addEventListener("change", syncUIState);
+    window.addEventListener("DOMContentLoaded", syncUIState);
+    syncUIState();
+  })();
+</script>
 </body>
 </html>
