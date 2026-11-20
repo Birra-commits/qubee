@@ -606,10 +606,10 @@
       }
     }
   })();
-<div id="phonetic-workspace" style="display: none; margin-top: 8px;">
+<div id="phonetic-workspace" style="display: none; margin-top: 10px;">
   <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
     <span style="font-size: 12px; font-weight: 600; color: #374151;">
-      Top box = Amharic Fidel output (`#editor`) · Bottom box = Latin phonetic / Gen Z input
+      Top box: Amharic Fidel output (`#editor`) · Bottom box: Latin / Gen Z phonetic input
     </span>
     <button
       type="button"
@@ -625,7 +625,7 @@
       for="phonetic-latin-input"
       style="display: block; font-size: 12px; font-weight: 600; color: #c2410c; margin-bottom: 4px;"
     >
-      Latin Phonetic Input (type e.g. <code>Lemen</code>, <code>selam</code>, <code>min ale</code>)
+      Latin Phonetic Input (e.g. <code>Lemen</code>, <code>mn</code>, <code>nw</code>, <code>selam</code>)
     </label>
     <textarea
       id="phonetic-latin-input"
@@ -646,7 +646,6 @@
 
     if (!editor || !workspace || !latinInput) return;
 
-    // Place workspace right after #editor so #editor stays on top and Latin input sits below
     if (editor.parentNode) {
       editor.parentNode.insertBefore(workspace, editor.nextSibling);
     }
@@ -655,23 +654,7 @@
     const AMHARIC_PLACEHOLDER = "የአማርኛ ጽሑፍ እዚህ ይታያል (ለምሳሌ: Lemen -> ልምን)...";
 
     let phoneticEnabled = true;
-    let activeLangHint = "";
-
-    function findLanguageSelect() {
-      return (
-        document.getElementById("language-select") ||
-        document.getElementById("lang-select") ||
-        document.getElementById("language") ||
-        [...document.querySelectorAll("select")].find((sel) =>
-          [...sel.options].some((o) =>
-            /amharic|amh|አማርኛ|oromo|orm|afaan/i.test(`${o.value} ${o.text}`)
-          )
-        ) ||
-        null
-      );
-    }
-
-    const langSelect = findLanguageSelect();
+    let activeLang = null; // "amharic" | "oromo" | null
 
     // [1st ä, 2nd u, 3rd i, 4th a, 5th ie/ee, 6th ə/sadis, 7th o]
     const FIDEL = {
@@ -715,77 +698,61 @@
       u: "ኡ"
     };
 
-    // Common casual / Gen Z Amharic Latin spellings -> Fidel
     const CASUAL_ALIASES = {
       lemen: "ልምን",
       limen: "ልምን",
       selam: "ሰላም",
       salam: "ሰላም",
       min: "ምን",
+      mn: "ምን",
       ale: "አለ",
+      al: "አል",
       neg: "ነግ",
       new: "ነው",
+      nw: "ነው",
       nachew: "ናቸው",
       nashi: "ናሽ",
       neh: "ነህ",
       nesh: "ነሽ",
       bicha: "ብቻ",
+      bcha: "ብቻ",
       betam: "በጣም",
-      etem: "እትም",
-      enante: "እናንተ",
-      enesu: "እነሱ",
-      er: "ኧረ",
+      btam: "በጣም",
+      yene: "የኔ",
+      yne: "የኔ",
       ere: "ኧረ",
-      ay: "አይ",
-      aye: "አየ",
-      wush: "ውሽ",
-      wushet: "ውሸት",
+      er: "ኧረ",
       ende: "እንዴ",
+      nde: "እንዴ",
       endih: "እንዲህ",
       enday: "እንዳይ",
-      kem: "ከም",
-      ke: "ከ",
-      le: "ለ",
-      be: "በ",
-      te: "ተ",
-      ye: "የ",
-      wede: "ወደ",
-      gize: "ጊዜ",
+      ayzoh: "አይዞህ",
+      ayzosh: "አይዞሽ",
+      shukran: "ሹክራን",
+      zere: "ዘሬ",
       sera: "ስራ",
       sira: "ስራ",
       sew: "ሰው",
       bet: "ቤት",
       ketema: "ከተማ",
-      meskel: "መስቀል",
-      enat: "እናት",
-      abat: "አባት",
-      wondim: "ወንድም",
-      ehit: "እህት",
       fikir: "ፍቅር",
-      des: "ደስ",
-      yilegnal: "ይለኛል",
-      yihonal: "ይሆናል",
-      alawqim: "አላውቅም",
-      alawkum: "አላውቅም",
       chigr: "ችግር",
       chigir: "ችግር"
     };
 
     const VOWEL_MAP = {
-      a: 3, // 4th order (ā)
-      e: 0, // 1st order (ä) — "ee" / "ie" promotes to 5th order
-      i: 2, // 3rd order (i)
-      o: 6, // 7th order (o)
-      u: 1  // 2nd order (u)
+      a: 3,
+      e: 0,
+      i: 2,
+      o: 6,
+      u: 1
     };
 
     const DIGRAPHS = ["sh", "ch", "zh", "ny", "gn", "hh", "ts", "t'", "c'", "p'", "s'"];
 
-    // Transliterates a single Latin word into Fidel
     function transliterateWord(rawWord) {
       if (!rawWord) return "";
       const lower = rawWord.toLowerCase();
-
       if (CASUAL_ALIASES[lower]) {
         return CASUAL_ALIASES[lower];
       }
@@ -796,7 +763,6 @@
       while (i < lower.length) {
         const ch = lower[i];
 
-        // Punctuation inside/at edge of token
         if (ch === ".") {
           if (lower[i + 1] === ".") {
             out += "።";
@@ -818,7 +784,6 @@
           continue;
         }
 
-        // Check 2-char digraphs first (like "sh", "ch", "ny", "ts", "t'")
         const two = lower.slice(i, i + 2);
         let consKey = null;
         let step = 1;
@@ -836,29 +801,22 @@
           const next1 = lower[i];
           const next2 = lower[i + 1];
 
-          // Check 5th order ("ee" or "ie")
-          if (
-            (next1 === "e" && next2 === "e") ||
-            (next1 === "i" && next2 === "e")
-          ) {
+          if ((next1 === "e" && next2 === "e") || (next1 === "i" && next2 === "e")) {
             out += FIDEL[consKey][4];
             i += 2;
             continue;
           }
 
-          // Check single vowel following consonant
           if (next1 && Object.prototype.hasOwnProperty.call(VOWEL_MAP, next1)) {
             out += FIDEL[consKey][VOWEL_MAP[next1]];
             i += 1;
             continue;
           }
 
-          // Otherwise 6th order (sadis / base consonant)
           out += FIDEL[consKey][5];
           continue;
         }
 
-        // Standalone vowels
         if (STANDALONE_VOWELS[ch]) {
           out += STANDALONE_VOWELS[ch];
           i += 1;
@@ -872,7 +830,6 @@
       return out;
     }
 
-    // Converts full Latin text (preserving spaces & newlines) into Fidel
     function transliterateText(inputText) {
       return inputText
         .split(/(\s+)/)
@@ -880,20 +837,27 @@
         .join("");
     }
 
-    function isAmharicSelected() {
-      if (langSelect) {
-        const val = String(langSelect.value || "").toLowerCase();
-        const optText = String(
-          langSelect.options?.[langSelect.selectedIndex]?.text || ""
-        ).toLowerCase();
-        if (/amharic|amh|^am$|አማርኛ/.test(val) || /amharic|amh|አማርኛ/.test(optText)) {
-          return true;
+    function detectLanguageFromSelects() {
+      const selects = [...document.querySelectorAll("select")];
+      for (const sel of selects) {
+        const val = String(sel.value || "").toLowerCase();
+        const text = String(sel.options?.[sel.selectedIndex]?.text || "").toLowerCase();
+        if (/amharic|amh|^am$|አማርኛ/.test(val) || /amharic|amh|አማርኛ/.test(text)) {
+          return "amharic";
         }
-        if (/oromo|orm|^om$|afaan/.test(val) || /oromo|orm|afaan/.test(optText)) {
-          return false;
+        if (/oromo|orm|^om$|afaan/.test(val) || /oromo|orm|afaan/.test(text)) {
+          return "oromo";
         }
       }
-      return activeLangHint === "amharic";
+      return null;
+    }
+
+    function isAmharicSelected() {
+      const fromSelect = detectLanguageFromSelects();
+      if (fromSelect) {
+        activeLang = fromSelect;
+      }
+      return activeLang === "amharic";
     }
 
     function syncPhoneticOutput() {
@@ -920,7 +884,6 @@
         editor.placeholder = AMHARIC_PLACEHOLDER;
         if (phoneticEnabled) {
           syncPhoneticOutput();
-          latinInput.focus();
         }
       } else {
         editor.setAttribute("lang", "om");
@@ -930,15 +893,34 @@
 
     latinInput.addEventListener("input", syncPhoneticOutput);
 
+    document.addEventListener("change", (e) => {
+      const target = e.target;
+      if (!target) return;
+      if (target.tagName === "SELECT") {
+        syncUIState();
+        return;
+      }
+      if (target.type === "radio") {
+        const labelText = `${target.value || ""} ${target.labels?.[0]?.textContent || ""}`.toLowerCase();
+        if (/amharic|amh|አማርኛ/.test(labelText) && target.checked) {
+          activeLang = "amharic";
+          syncUIState();
+        } else if (/oromo|orm|afaan/.test(labelText) && target.checked) {
+          activeLang = "oromo";
+          syncUIState();
+        }
+      }
+    });
+
     document.addEventListener("click", (e) => {
-      const target = e.target.closest("button, [role='tab'], label, a");
-      if (!target || target === toggleBtn) return;
-      const txt = `${target.dataset.lang || ""} ${target.value || ""} ${target.textContent || ""}`.toLowerCase();
+      const target = e.target.closest("button, [role='tab'], label, a, [data-lang]");
+      if (!target || target === toggleBtn || target.closest("#phonetic-workspace")) return;
+      const txt = `${target.dataset?.lang || ""} ${target.value || ""} ${target.textContent || ""}`.toLowerCase();
       if (/amharic|amh|አማርኛ/.test(txt)) {
-        activeLangHint = "amharic";
+        activeLang = "amharic";
         setTimeout(syncUIState, 0);
       } else if (/oromo|orm|afaan/.test(txt)) {
-        activeLangHint = "oromo";
+        activeLang = "oromo";
         setTimeout(syncUIState, 0);
       }
     });
@@ -953,7 +935,6 @@
       }
     });
 
-    langSelect?.addEventListener("change", syncUIState);
     window.addEventListener("DOMContentLoaded", syncUIState);
     syncUIState();
   })();
