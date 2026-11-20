@@ -26,7 +26,7 @@ Text:
 ${text}`;
 
         const requestBody = JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.1,
             responseMimeType: "application/json",
@@ -44,7 +44,7 @@ ${text}`;
 
         for (const model of MODELS) {
           const geminiRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+            `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent?key=${apiKey}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -76,7 +76,6 @@ ${text}`;
       }
     }
 
-    // Serve public/index.html and any other static files
     return env.ASSETS.fetch(request);
   }
 };
