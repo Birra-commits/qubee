@@ -36,8 +36,23 @@
       height: 100vh;
       display: flex;
       flex-direction: column;
+      min-height: 100vh;
+      margin: 0;
     }
-
+    .site-footer {
+      position: fixed;
+      left: 0;
+      bottom: 0;
+      width: 100%;
+      padding: 12px;
+      text-align: center;
+      font-size: 13px;
+      color: #6b7280;
+      background: #ffffff;
+      border-top: 1px solid #e5e7eb;
+      box-sizing: border-box;
+      z-index: 50;
+    }
     header {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
@@ -941,4 +956,7 @@
   })();
 </script>
 </body>
+<footer class="site-footer">
+  © 2026 Birra. All rights reserved.
+</footer>
 </html>
